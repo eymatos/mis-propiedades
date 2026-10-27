@@ -1,0 +1,13 @@
+{
+  "name": "Mis Propiedades",
+  "short_name": "Propiedades",
+  "description": "Administración de propiedades, inquilinos y cobros.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef2f0",
+  "theme_color": "#0b6e69",
+  "lang": "es-DO",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

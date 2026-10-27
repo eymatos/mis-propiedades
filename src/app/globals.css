@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --color-mist: #eef2f0;
+  --color-surface: #ffffff;
+  --color-ink: #13231e;
+  --color-muted: #5b6b66;
+  --color-line: #d5deda;
+  --color-caribe: #0b6e69;
+  --color-caribe-dark: #08524e;
+  --color-caribe-soft: #dcefec;
+  --color-late: #c2410c;
+  --color-late-soft: #fdebe2;
+  --color-due: #a86a12;
+  --color-due-soft: #fbf1dc;
+  --color-paid: #2f7d4f;
+  --color-paid-soft: #e1f1e7;
+  --font-sans: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-mist);
+  color: var(--color-ink);
+  font-feature-settings: "tnum" 0;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-caribe);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px; /* evita el zoom automático en iPhone */
+}
+
+details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ledger-row {
+    transition: background-color 120ms ease;
+  }
+}
+
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+}
