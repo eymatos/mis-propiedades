@@ -10,7 +10,7 @@ function secret(): string {
   if (explicit && explicit.length >= 16) return explicit;
   const pass = process.env.APP_PASSWORD;
   if (!pass) throw new Error("Falta la variable APP_PASSWORD.");
-  return `${pass}::${process.env.DATABASE_URL ?? ""}::mis-propiedades`;
+  return `${pass}::mis-propiedades-sesion`;
 }
 
 function b64url(bytes: Uint8Array): string {

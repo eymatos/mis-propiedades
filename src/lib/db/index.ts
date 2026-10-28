@@ -10,10 +10,20 @@ function createDb(url: string) {
 type DB = ReturnType<typeof createDb>;
 let _db: DB | undefined;
 
+/** URL de Neon, aunque la integración se haya conectado con otro prefijo. */
+export function databaseUrl(): string | undefined {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  if (process.env.POSTGRES_URL) return process.env.POSTGRES_URL;
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value && (key.endsWith("_DATABASE_URL") || key.endsWith("_POSTGRES_URL")) && value.startsWith("postgres")) return value;
+  }
+  return undefined;
+}
+
 /** Conexión perezosa: no falla durante el build si aún no hay DATABASE_URL. */
 export function getDb(): DB {
   if (!_db) {
-    const url = process.env.DATABASE_URL;
+    const url = databaseUrl();
     if (!url) throw new Error("Falta la variable DATABASE_URL (conexión a Neon).");
     _db = createDb(url);
   }

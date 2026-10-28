@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { ensureSchema } from "@/lib/db";
+import { databaseUrl, ensureSchema } from "@/lib/db";
+import { blobConfigured } from "@/lib/blob-env";
 import { checkPassword, createSessionToken, SESSION_COOKIE, SESSION_DAYS } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -9,9 +10,11 @@ function origin(req: Request): string {
 }
 
 export async function POST(req: Request) {
-  const missing = ["DATABASE_URL", "APP_PASSWORD", "BLOB_READ_WRITE_TOKEN"].filter((k) => !process.env[k]);
+  const missing = ["APP_PASSWORD"].filter((k) => !process.env[k]);
+  if (!databaseUrl()) missing.push("DATABASE_URL (conecta Neon en Storage)");
+  if (!blobConfigured()) missing.push("Vercel Blob (conecta el almacén en Storage)");
   if (missing.length) {
-    return NextResponse.redirect(`${origin(req)}/login?error=config&faltan=${missing.join(",")}`, { status: 303 });
+    return NextResponse.redirect(`${origin(req)}/login?error=config&faltan=${encodeURIComponent(missing.join(","))}`, { status: 303 });
   }
 
   const form = await req.formData();

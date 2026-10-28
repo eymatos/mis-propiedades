@@ -1,4 +1,5 @@
 import { del, get, list, put } from "@vercel/blob";
+import { blobAuth } from "./blob-env";
 
 // Archivos en Vercel Blob, en un almacén PRIVADO: solo se pueden ver a través de la app
 // (ruta /api/archivo), que exige haber iniciado sesión.
@@ -18,11 +19,11 @@ export function cleanFileName(name: string): string {
 
 export async function saveFile(pathname: string, data: Blob | Uint8Array | string, contentType: string) {
   const body = data instanceof Uint8Array ? new Blob([new Uint8Array(data)], { type: contentType }) : data;
-  return put(pathname, body, { access: ACCESS, addRandomSuffix: true, contentType });
+  return put(pathname, body, { ...blobAuth(), access: ACCESS, addRandomSuffix: true, contentType } as Parameters<typeof put>[2]);
 }
 
 export async function readFile(pathname: string): Promise<{ stream: ReadableStream; contentType?: string } | null> {
-  const result = (await get(pathname, { access: ACCESS })) as unknown as {
+  const result = (await get(pathname, { ...blobAuth(), access: ACCESS } as Parameters<typeof get>[1])) as unknown as {
     stream?: ReadableStream;
     contentType?: string;
     blob?: { contentType?: string };
@@ -33,7 +34,7 @@ export async function readFile(pathname: string): Promise<{ stream: ReadableStre
 
 export async function deleteFile(pathname: string) {
   try {
-    await del(pathname);
+    await del(pathname, blobAuth() as Parameters<typeof del>[1]);
   } catch (e) {
     console.error("No se pudo borrar el archivo:", e);
   }
@@ -41,7 +42,7 @@ export async function deleteFile(pathname: string) {
 
 /** Borra los respaldos más viejos y deja los últimos `keep`. */
 export async function pruneBackups(keep = 60) {
-  const { blobs } = await list({ prefix: "respaldos/", limit: 1000 });
+  const { blobs } = await list({ ...blobAuth(), prefix: "respaldos/", limit: 1000 } as Parameters<typeof list>[0]);
   const sorted = [...blobs].sort((a, b) => String(b.pathname).localeCompare(String(a.pathname)));
   for (const b of sorted.slice(keep)) await deleteFile(b.pathname);
 }

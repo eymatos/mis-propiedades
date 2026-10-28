@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { isRequestAuthenticated } from "@/lib/session";
+import { blobToken } from "@/lib/blob-env";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,9 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const body = (await req.json()) as HandleUploadBody;
   try {
+    const token = blobToken();
     const result = await handleUpload({
+      ...(token ? { token } : {}),
       body,
       request: req,
       onBeforeGenerateToken: async () => {
