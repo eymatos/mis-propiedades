@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
 import { getDb } from "./db";
-import { documents, leases, units } from "./db/schema";
-import { getEntityFolder, getFolderPath, getSubfolder, type DriveFile } from "./google";
+import { documents } from "./db/schema";
 
 export const CATEGORIES: Record<string, string> = {
   contrato: "Contrato",
@@ -33,35 +31,32 @@ export function parseTarget(input: Record<string, unknown>): DocTarget {
   };
 }
 
-/** Decide en qué carpeta de Drive va el documento. */
-export async function folderForTarget(t: DocTarget): Promise<string> {
-  const db = getDb();
-  let tenantId = t.tenantId ?? null;
-  let propertyId = t.propertyId ?? null;
-  if (!tenantId && t.leaseId) {
-    const [l] = await db.select({ tenantId: leases.tenantId }).from(leases).where(eq(leases.id, t.leaseId));
-    tenantId = l?.tenantId ?? null;
-  }
-  if (!tenantId && !propertyId && t.unitId) {
-    const [u] = await db.select({ propertyId: units.propertyId }).from(units).where(eq(units.id, t.unitId));
-    propertyId = u?.propertyId ?? null;
-  }
-  if (tenantId) return getSubfolder(await getEntityFolder("tenant", tenantId), "Documentos");
-  if (propertyId) return getSubfolder(await getEntityFolder("property", propertyId), "Documentos");
-  return getFolderPath("General");
+/** Carpeta lógica dentro del almacén según a quién pertenece el documento. */
+export function folderFor(t: DocTarget): string {
+  if (t.tenantId) return `inquilinos/${t.tenantId}`;
+  if (t.leaseId) return `contratos/${t.leaseId}`;
+  if (t.propertyId) return `propiedades/${t.propertyId}`;
+  if (t.unitId) return `unidades/${t.unitId}`;
+  return "general";
 }
 
-export async function registerDocument(file: DriveFile, category: string, t: DocTarget) {
+export async function registerDocument(file: {
+  pathname: string;
+  name: string;
+  mimeType?: string | null;
+  size?: number | null;
+  category: string;
+  target: DocTarget;
+}) {
   const [row] = await getDb()
     .insert(documents)
     .values({
-      ...t,
-      name: file.name,
-      category: CATEGORIES[category] ? category : "otro",
-      driveFileId: file.id,
-      webViewLink: file.webViewLink ?? null,
+      ...file.target,
+      name: file.name.slice(0, 200),
+      category: CATEGORIES[file.category] ? file.category : "otro",
+      storagePath: file.pathname,
       mimeType: file.mimeType ?? null,
-      size: file.size ? Number(file.size) : null,
+      size: file.size ?? null,
     })
     .returning();
   return row;

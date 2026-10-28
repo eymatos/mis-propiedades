@@ -6,7 +6,6 @@ import { ensureCharges, lateLink, loadCharges, reminderLink, statusText, toneOf 
 import { addDays, addMonths, currentPeriod, diffDays, formatDate, formatDateLong, periodLabel, todayISO } from "@/lib/dates";
 import { round2, toNumber } from "@/lib/money";
 import { getSettings } from "@/lib/settings";
-import { driveStatus } from "@/lib/google";
 import { btn, EmptyState, LedgerRow, Money, Panel, Section, StatusChip, WhatsAppLink } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +16,7 @@ export default async function Dashboard() {
   const period = currentPeriod();
   await ensureCharges(today);
 
-  const [all, settings, unitRows, activeLeases, monthPayments, drive, propCount] = await Promise.all([
+  const [all, settings, unitRows, activeLeases, monthPayments, propCount] = await Promise.all([
     loadCharges({}, today),
     getSettings(),
     db.select({ id: units.id }).from(units),
@@ -32,7 +31,6 @@ export default async function Dashboard() {
       .select({ amount: payments.amount })
       .from(payments)
       .where(and(sql`${payments.paidAt} >= ${`${period}-01`}`, sql`${payments.paidAt} < ${`${addMonths(period, 1)}-01`}`)),
-    driveStatus(),
     db.select({ n: sql<number>`count(*)::int` }).from(properties),
   ]);
 
@@ -61,16 +59,6 @@ export default async function Dashboard() {
             : "Todo al día"}
         </h1>
       </header>
-
-      {!drive.connected && (
-        <div className="mb-6 rounded-lg border border-due/30 bg-due-soft px-4 py-3 text-sm text-due">
-          Google Drive no está conectado: los recibos y documentos no se podrán guardar.{" "}
-          <form action="/api/auth/logout" method="post" className="inline">
-            <button className="font-semibold underline">Vuelve a entrar con Google</button>
-          </form>{" "}
-          y acepta el permiso de Drive.
-        </div>
-      )}
 
       {/* Totales del mes, como la última línea de un libro de cuentas */}
       <Panel className="mb-8 grid grid-cols-1 divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">

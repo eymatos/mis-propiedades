@@ -1,38 +1,34 @@
 import { NextResponse } from "next/server";
-import { appOrigin, GOOGLE_SCOPES } from "@/lib/google";
+import { ensureSchema } from "@/lib/db";
+import { checkPassword, createSessionToken, SESSION_COOKIE, SESSION_DAYS } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-const REQUIRED = ["DATABASE_URL", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "ALLOWED_EMAILS", "AUTH_SECRET"];
+function origin(req: Request): string {
+  return process.env.APP_URL?.replace(/\/$/, "") || new URL(req.url).origin;
+}
 
-export async function GET(req: Request) {
-  const missing = REQUIRED.filter((k) => !process.env[k]);
-  if ((process.env.AUTH_SECRET ?? "").length < 32 && !missing.includes("AUTH_SECRET")) missing.push("AUTH_SECRET (mínimo 32 caracteres)");
+export async function POST(req: Request) {
+  const missing = ["DATABASE_URL", "APP_PASSWORD", "BLOB_READ_WRITE_TOKEN"].filter((k) => !process.env[k]);
   if (missing.length) {
-    return new Response(
-      `Falta configurar en Vercel (Settings > Environment Variables):\n\n- ${missing.join("\n- ")}\n\nDespués de agregarlas, haz Redeploy.`,
-      { status: 500, headers: { "Content-Type": "text/plain; charset=utf-8" } },
-    );
+    return NextResponse.redirect(`${origin(req)}/login?error=config&faltan=${missing.join(",")}`, { status: 303 });
   }
-  const origin = appOrigin(req.url);
-  const state = crypto.randomUUID();
-  const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID ?? "",
-    redirect_uri: `${origin}/api/auth/callback`,
-    response_type: "code",
-    scope: GOOGLE_SCOPES,
-    access_type: "offline",
-    prompt: "consent",
-    include_granted_scopes: "true",
-    state,
-  });
-  const res = NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
-  res.cookies.set("gp_oauth_state", state, {
+
+  const form = await req.formData();
+  const password = String(form.get("password") ?? "");
+  if (!(await checkPassword(password))) {
+    await new Promise((r) => setTimeout(r, 1200)); // frena intentos repetidos
+    return NextResponse.redirect(`${origin(req)}/login?error=clave`, { status: 303 });
+  }
+
+  await ensureSchema();
+  const res = NextResponse.redirect(`${origin(req)}/`, { status: 303 });
+  res.cookies.set(SESSION_COOKIE, await createSessionToken(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 600,
+    maxAge: SESSION_DAYS * 86_400,
   });
   return res;
 }

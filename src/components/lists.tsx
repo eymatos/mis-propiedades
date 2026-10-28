@@ -3,6 +3,7 @@ import { deleteDocument } from "@/app/actions";
 import { statusText, toneOf, type ChargeView } from "@/lib/billing";
 import { formatDate } from "@/lib/dates";
 import { CATEGORIES } from "@/lib/documents";
+import { fileUrl } from "@/lib/storage";
 import type { DocumentRow } from "@/lib/db/schema";
 import { SubmitButton } from "./client";
 import { EmptyState, LedgerRow, Money, Panel, Pill, StatusChip } from "./ui";
@@ -71,7 +72,7 @@ export function DocumentList({
         <div key={d.id} className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
             <a
-              href={d.webViewLink ?? `https://drive.google.com/file/d/${d.driveFileId}/view`}
+              href={fileUrl(d.storagePath)}
               target="_blank"
               rel="noopener noreferrer"
               className="block truncate font-semibold hover:text-caribe hover:underline"
@@ -88,8 +89,8 @@ export function DocumentList({
           <form action={deleteDocument}>
             <input type="hidden" name="id" value={d.id} />
             <input type="hidden" name="back" value={back} />
-            <SubmitButton variant="danger" pending="…" confirm="¿Quitar este documento de la lista? El archivo se queda en tu Drive.">
-              Quitar
+            <SubmitButton variant="danger" pending="…" confirm="¿Eliminar este documento? Se borra el archivo.">
+              Eliminar
             </SubmitButton>
           </form>
         </div>

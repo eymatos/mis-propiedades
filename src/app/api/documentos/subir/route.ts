@@ -1,26 +1,29 @@
 import { NextResponse } from "next/server";
-import { safeName, uploadFile } from "@/lib/google";
-import { folderForTarget, parseTarget, registerDocument } from "@/lib/documents";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { isRequestAuthenticated } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-// Ruta de respaldo para archivos pequeños (Vercel limita el cuerpo a ~4.5 MB).
+// Entrega al navegador un permiso temporal para subir el archivo directo a Vercel Blob
+// (así no aplica el límite de 4.5 MB de las funciones).
 export async function POST(req: Request) {
+  const body = (await req.json()) as HandleUploadBody;
   try {
-    const form = await req.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) return NextResponse.json({ error: "No se recibió archivo." }, { status: 400 });
-    const fields = Object.fromEntries(form.entries());
-    const target = parseTarget(fields);
-    const uploaded = await uploadFile({
-      name: safeName(String(fields.name || file.name)),
-      mimeType: file.type || "application/octet-stream",
-      data: new Uint8Array(await file.arrayBuffer()),
-      parentId: await folderForTarget(target),
+    const result = await handleUpload({
+      body,
+      request: req,
+      onBeforeGenerateToken: async () => {
+        if (!(await isRequestAuthenticated(req))) throw new Error("No has iniciado sesión.");
+        return {
+          addRandomSuffix: true,
+          maximumSizeInBytes: 50 * 1024 * 1024,
+        };
+      },
+      // El registro del documento lo hace el navegador al terminar (/api/documentos/registrar).
+      onUploadCompleted: async () => {},
     });
-    const doc = await registerDocument(uploaded, String(fields.category ?? "otro"), target);
-    return NextResponse.json({ ok: true, id: doc.id });
+    return NextResponse.json(result);
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
 }

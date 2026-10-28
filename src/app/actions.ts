@@ -8,9 +8,9 @@ import { charges, documents, leases, payments, properties, tenants, units } from
 import { ensureCharges } from "@/lib/billing";
 import { isValidISODate, todayISO } from "@/lib/dates";
 import { toMoneyString, toNumber } from "@/lib/money";
-import { archiveReceipt } from "@/lib/receipt";
+import { deleteFile } from "@/lib/storage";
 import { nextReceiptNumber, setSettings, DEFAULT_TEMPLATES } from "@/lib/settings";
-import { backupToDrive } from "@/lib/backup";
+import { saveBackup } from "@/lib/backup";
 
 // ---------- utilidades ----------
 
@@ -292,33 +292,15 @@ export async function registerPayment(fd: FormData) {
     })
     .returning({ id: payments.id });
 
-  let driveOk = true;
-  try {
-    await archiveReceipt(p.id);
-  } catch (e) {
-    console.error("No se pudo guardar el recibo en Drive:", e);
-    driveOk = false;
-  }
   revalidatePath("/", "layout");
-  redirect(`${back}?pago=${p.id}${driveOk ? "" : "&drive=error"}`);
-}
-
-export async function retryReceiptArchive(fd: FormData) {
-  const paymentId = int(fd, "paymentId");
-  const chargeId = int(fd, "chargeId");
-  try {
-    await archiveReceipt(paymentId);
-  } catch (e) {
-    fail(`/cobros/${chargeId}`, `No se pudo guardar en Drive: ${(e as Error).message.slice(0, 160)}`);
-  }
-  done(`/cobros/${chargeId}`, "Recibo guardado en Drive.");
+  redirect(`${back}?pago=${p.id}`);
 }
 
 export async function deletePayment(fd: FormData) {
   const id = int(fd, "id");
   const chargeId = int(fd, "chargeId");
   await getDb().delete(payments).where(eq(payments.id, id));
-  done(`/cobros/${chargeId}`, "Pago eliminado. El recibo en Drive no se borra.");
+  done(`/cobros/${chargeId}`, "Pago eliminado.");
 }
 
 // ---------- documentos ----------
@@ -326,8 +308,9 @@ export async function deletePayment(fd: FormData) {
 export async function deleteDocument(fd: FormData) {
   const id = int(fd, "id");
   const back = str(fd, "back") || "/documentos";
-  await getDb().delete(documents).where(eq(documents.id, id));
-  done(back, "Documento quitado de la lista. El archivo sigue en tu Google Drive.");
+  const [doc] = await getDb().delete(documents).where(eq(documents.id, id)).returning({ path: documents.storagePath });
+  if (doc?.path) await deleteFile(doc.path);
+  done(back, "Documento eliminado.");
 }
 
 // ---------- ajustes ----------
@@ -347,9 +330,9 @@ export async function saveSettingsAction(fd: FormData) {
 
 export async function backupNow() {
   try {
-    await backupToDrive();
+    await saveBackup();
   } catch (e) {
-    fail("/ajustes", `No se pudo respaldar en Drive: ${(e as Error).message.slice(0, 160)}`);
+    fail("/ajustes", `No se pudo guardar el respaldo: ${(e as Error).message.slice(0, 160)}`);
   }
-  done("/ajustes", "Respaldo guardado en tu Google Drive.");
+  done("/ajustes", "Respaldo guardado.");
 }

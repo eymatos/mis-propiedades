@@ -1,6 +1,6 @@
 import { backupNow, saveSettingsAction } from "@/app/actions";
 import { formatDate } from "@/lib/dates";
-import { driveStatus, folderUrl } from "@/lib/google";
+import { fileUrl } from "@/lib/storage";
 import { getSettings } from "@/lib/settings";
 import { SubmitButton } from "@/components/client";
 import { btn, Field, Flash, inputCls, PageHeader, Panel, Section } from "@/components/ui";
@@ -10,35 +10,28 @@ export const metadata = { title: "Ajustes" };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const sp = await searchParams;
-  const [s, drive] = await Promise.all([getSettings(), driveStatus()]);
+  const s = await getSettings();
 
   return (
     <>
       <PageHeader title="Ajustes" />
       <Flash ok={sp.ok} error={sp.error} />
 
-      <Section title="Google Drive y respaldos">
+      <Section title="Respaldos">
         <Panel className="p-4">
           <p className="text-sm">
-            {drive.connected ? (
-              <>
-                Conectado con <span className="font-semibold">{drive.email}</span>. Los documentos, recibos y respaldos
-                diarios se guardan en la carpeta “Gestión de Propiedades”.
-              </>
-            ) : (
-              <span className="text-late">No conectado. Cierra sesión y vuelve a entrar aceptando el permiso de Drive.</span>
-            )}
+            Cada mañana se guarda automáticamente una copia completa de tus datos (se conservan las últimas 60).
           </p>
           <p className="mt-2 text-sm text-muted">
-            Último respaldo automático:{" "}
+            Último respaldo:{" "}
             {s.last_backup_at ? (
               <>
                 {formatDate(s.last_backup_at.slice(0, 10))}
-                {s.last_backup_url && (
+                {s.last_backup_path && (
                   <>
                     {" · "}
-                    <a href={s.last_backup_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-caribe hover:underline">
-                      ver archivo
+                    <a href={fileUrl(s.last_backup_path, true)} className="font-semibold text-caribe hover:underline">
+                      descargar
                     </a>
                   </>
                 )}
@@ -49,20 +42,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <form action={backupNow}>
-              <SubmitButton pending="Respaldando…">Respaldar ahora en Drive</SubmitButton>
+              <SubmitButton pending="Respaldando…">Respaldar ahora</SubmitButton>
             </form>
             <a href="/api/respaldo" className={btn.secondary}>
-              Descargar respaldo (JSON)
+              Descargar todo (JSON)
             </a>
             <a href="/api/respaldo?formato=csv" className={btn.secondary}>
               Descargar pagos (Excel/CSV)
             </a>
-            {s.drive_root_folder_id && (
-              <a href={folderUrl(s.drive_root_folder_id)} target="_blank" rel="noopener noreferrer" className={btn.secondary}>
-                Abrir carpeta en Drive
-              </a>
-            )}
           </div>
+          <p className="mt-3 text-xs text-muted">
+            Te recomendamos descargar el respaldo una vez al mes y guardarlo en tu computadora o tu Drive personal.
+          </p>
         </Panel>
       </Section>
 

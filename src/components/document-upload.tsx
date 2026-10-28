@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 
 const CATEGORIES: [string, string][] = [
   ["contrato", "Contrato"],
@@ -13,43 +14,39 @@ const CATEGORIES: [string, string][] = [
   ["otro", "Otro"],
 ];
 
-const SERVER_LIMIT = 4 * 1024 * 1024;
-
 type Target = { propertyId?: number; unitId?: number; tenantId?: number; leaseId?: number };
 
-async function uploadDirect(file: File, name: string, category: string, target: Target) {
-  const s = await fetch("/api/documentos/sesion", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, mimeType: file.type || "application/octet-stream", size: file.size, category, ...target }),
-  });
-  const sj = (await s.json()) as { uploadUrl?: string; error?: string };
-  if (!s.ok || !sj.uploadUrl) throw new Error(sj.error ?? "No se pudo iniciar la subida.");
+function folderFor(t: Target): string {
+  if (t.tenantId) return `inquilinos/${t.tenantId}`;
+  if (t.leaseId) return `contratos/${t.leaseId}`;
+  if (t.propertyId) return `propiedades/${t.propertyId}`;
+  if (t.unitId) return `unidades/${t.unitId}`;
+  return "general";
+}
 
-  const put = await fetch(sj.uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    body: file,
-  });
-  if (!put.ok) throw new Error(`Drive respondió ${put.status}`);
-  const meta = (await put.json()) as { id: string };
+function cleanFileName(name: string): string {
+  return (
+    name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\w.\- ]+/g, "")
+      .replace(/\s+/g, "-")
+      .slice(0, 100) || "archivo"
+  );
+}
 
+async function uploadOne(file: File, name: string, category: string, target: Target) {
+  const blob = await upload(`${folderFor(target)}/${cleanFileName(name)}`, file, {
+    access: "private",
+    handleUploadUrl: "/api/documentos/subir",
+    contentType: file.type || undefined,
+  });
   const r = await fetch("/api/documentos/registrar", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileId: meta.id, category, ...target }),
+    body: JSON.stringify({ pathname: blob.pathname, name, mimeType: file.type, size: file.size, category, ...target }),
   });
   if (!r.ok) throw new Error(((await r.json()) as { error?: string }).error ?? "No se pudo registrar.");
-}
-
-async function uploadViaServer(file: File, name: string, category: string, target: Target) {
-  const fd = new FormData();
-  fd.set("file", file);
-  fd.set("name", name);
-  fd.set("category", category);
-  for (const [k, v] of Object.entries(target)) if (v) fd.set(k, String(v));
-  const r = await fetch("/api/documentos/subir", { method: "POST", body: fd });
-  if (!r.ok) throw new Error(((await r.json()) as { error?: string }).error ?? "No se pudo subir.");
 }
 
 export function DocumentUpload({ target, defaultCategory = "otro" }: { target: Target; defaultCategory?: string }) {
@@ -74,15 +71,10 @@ export function DocumentUpload({ target, defaultCategory = "otro" }: { target: T
       for (const [i, file] of files.entries()) {
         const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : "";
         const name = customName ? `${customName}${files.length > 1 ? ` (${i + 1})` : ""}${ext}` : file.name;
-        try {
-          await uploadDirect(file, name, category, target);
-        } catch (err) {
-          if (file.size > SERVER_LIMIT) throw err;
-          await uploadViaServer(file, name, category, target);
-        }
+        await uploadOne(file, name, category, target);
       }
       form.reset();
-      setMsg({ ok: true, text: files.length > 1 ? `${files.length} archivos guardados en Drive.` : "Archivo guardado en Drive." });
+      setMsg({ ok: true, text: files.length > 1 ? `${files.length} archivos guardados.` : "Archivo guardado." });
       router.refresh();
     } catch (err) {
       setMsg({ ok: false, text: `No se pudo subir: ${(err as Error).message}` });
@@ -122,7 +114,7 @@ export function DocumentUpload({ target, defaultCategory = "otro" }: { target: T
         disabled={busy}
         className="inline-flex items-center justify-center rounded-lg bg-caribe px-4 py-2.5 text-sm font-semibold text-white hover:bg-caribe-dark disabled:opacity-60"
       >
-        {busy ? "Subiendo…" : "Subir a Drive"}
+        {busy ? "Subiendo…" : "Subir"}
       </button>
       {msg && (
         <p role="status" className={`text-sm sm:col-span-3 ${msg.ok ? "text-paid" : "text-late"}`}>

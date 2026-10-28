@@ -1,14 +1,11 @@
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { ensureSchema } from "@/lib/db";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 import { BottomNav, SettingsLink, SideNav } from "@/components/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await ensureSchema();
-  const email = await verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value);
 
   return (
     <div className="md:grid md:min-h-dvh md:grid-cols-[232px_1fr]">
@@ -19,7 +16,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </Link>
         <SideNav />
         <div className="mt-auto border-t border-line pt-4 text-xs text-muted">
-          <p className="truncate px-2">{email}</p>
           <form action="/api/auth/logout" method="post">
             <button className="mt-2 px-2 font-semibold text-caribe hover:underline">Cerrar sesión</button>
           </form>

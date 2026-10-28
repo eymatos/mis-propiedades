@@ -21,7 +21,6 @@ export const properties = pgTable("properties", {
   type: text("type").notNull().default("edificio"),
   address: text("address"),
   notes: text("notes"),
-  driveFolderId: text("drive_folder_id"),
   createdAt: createdAt(),
 });
 
@@ -44,7 +43,6 @@ export const tenants = pgTable("tenants", {
   phone: text("phone"),
   email: text("email"),
   notes: text("notes"),
-  driveFolderId: text("drive_folder_id"),
   createdAt: createdAt(),
 });
 
@@ -97,8 +95,6 @@ export const payments = pgTable("payments", {
   method: text("method").notNull().default("efectivo"),
   reference: text("reference"),
   receiptNumber: integer("receipt_number"),
-  receiptDriveId: text("receipt_drive_id"),
-  receiptUrl: text("receipt_url"),
   notes: text("notes"),
   createdAt: createdAt(),
 });
@@ -111,8 +107,8 @@ export const documents = pgTable("documents", {
   leaseId: integer("lease_id").references(() => leases.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   category: text("category").notNull().default("otro"),
-  driveFileId: text("drive_file_id").notNull(),
-  webViewLink: text("web_view_link"),
+  /** Ruta del archivo en Vercel Blob (privado). */
+  storagePath: text("storage_path").notNull(),
   mimeType: text("mime_type"),
   size: bigint("size", { mode: "number" }),
   createdAt: createdAt(),
@@ -121,15 +117,6 @@ export const documents = pgTable("documents", {
 export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
-});
-
-export const googleAuth = pgTable("google_auth", {
-  id: integer("id").primaryKey().default(1),
-  email: text("email").notNull(),
-  refreshToken: text("refresh_token"),
-  accessToken: text("access_token"),
-  expiresAt: bigint("expires_at", { mode: "number" }),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type Property = typeof properties.$inferSelect;

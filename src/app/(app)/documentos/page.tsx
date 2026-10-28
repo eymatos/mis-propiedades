@@ -3,11 +3,9 @@ import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { documents, properties, tenants } from "@/lib/db/schema";
 import { CATEGORIES } from "@/lib/documents";
-import { driveStatus, folderUrl } from "@/lib/google";
-import { getSetting } from "@/lib/settings";
 import { DocumentUpload } from "@/components/document-upload";
 import { DocumentList } from "@/components/lists";
-import { btn, Collapsible, cx, Flash, PageHeader } from "@/components/ui";
+import { Collapsible, cx, Flash, PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Documentos" };
@@ -20,7 +18,7 @@ export default async function DocumentsPage({
   const sp = await searchParams;
   const tipo = sp.tipo && CATEGORIES[sp.tipo] ? sp.tipo : null;
   const db = getDb();
-  const [rows, drive, root] = await Promise.all([
+  const [rows] = await Promise.all([
     db
       .select({ doc: documents, tenantName: tenants.fullName, propertyName: properties.name })
       .from(documents)
@@ -29,8 +27,6 @@ export default async function DocumentsPage({
       .where(tipo ? eq(documents.category, tipo) : undefined)
       .orderBy(desc(documents.createdAt))
       .limit(300),
-    driveStatus(),
-    getSetting("drive_root_folder_id"),
   ]);
   const context = new Map<number, string>(rows.map((r) => [r.doc.id, r.tenantName ?? r.propertyName ?? "General"] as [number, string]));
 
@@ -38,16 +34,9 @@ export default async function DocumentsPage({
     <>
       <PageHeader
         title="Documentos"
-        subtitle="Todo se guarda en tu Google Drive, en la carpeta “Gestión de Propiedades”."
-        actions={
-          root ? (
-            <a href={folderUrl(root)} target="_blank" rel="noopener noreferrer" className={btn.secondary}>
-              Abrir carpeta en Drive
-            </a>
-          ) : undefined
-        }
+        subtitle="Contratos, cédulas, títulos, comprobantes y fotos, guardados de forma privada."
       />
-      <Flash ok={sp.ok} error={sp.error ?? (drive.connected ? undefined : "Google Drive no está conectado. Cierra sesión y vuelve a entrar.")} />
+      <Flash ok={sp.ok} error={sp.error} />
 
       <div className="mb-5">
         <Collapsible label="Subir documento general" variant="primary">

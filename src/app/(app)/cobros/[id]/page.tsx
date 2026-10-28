@@ -12,7 +12,6 @@ import {
   deleteCharge,
   deletePayment,
   registerPayment,
-  retryReceiptArchive,
   updateCharge,
 } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
@@ -39,7 +38,7 @@ export default async function ChargePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ ok?: string; error?: string; pago?: string; drive?: string }>;
+  searchParams: Promise<{ ok?: string; error?: string; pago?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -74,9 +73,6 @@ export default async function ChargePage({
           <p className="font-semibold text-paid">
             Pago de <Money value={toNumber(justPaid.amount)} /> registrado · Recibo No. {receiptNo(justPaid.receiptNumber)}
           </p>
-          {sp.drive === "error" && (
-            <p className="mt-1 text-sm text-due">El recibo no se pudo guardar en Drive; puedes reintentarlo abajo.</p>
-          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <a href={`/api/recibo/${justPaid.id}`} target="_blank" className={btn.secondary}>
               Ver recibo PDF
@@ -181,19 +177,6 @@ export default async function ChargePage({
                   <a href={`/api/recibo/${p.id}`} target="_blank" className={btn.ghost}>
                     PDF
                   </a>
-                  {p.receiptUrl ? (
-                    <a href={p.receiptUrl} target="_blank" rel="noopener noreferrer" className={btn.ghost}>
-                      En Drive
-                    </a>
-                  ) : (
-                    <form action={retryReceiptArchive}>
-                      <input type="hidden" name="paymentId" value={p.id} />
-                      <input type="hidden" name="chargeId" value={charge.id} />
-                      <SubmitButton variant="secondary" pending="Guardando…">
-                        Guardar en Drive
-                      </SubmitButton>
-                    </form>
-                  )}
                   <form action={deletePayment}>
                     <input type="hidden" name="id" value={p.id} />
                     <input type="hidden" name="chargeId" value={charge.id} />

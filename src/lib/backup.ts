@@ -1,10 +1,10 @@
 import { getDb } from "./db";
 import { appSettings, charges, documents, leases, payments, properties, tenants, units } from "./db/schema";
 import { todayISO } from "./dates";
-import { getFolderPath, uploadFile } from "./google";
+import { pruneBackups, saveFile } from "./storage";
 import { setSettings } from "./settings";
 
-/** Copia completa de los datos (sin las credenciales de Google). */
+/** Copia completa de los datos. */
 export async function buildBackup() {
   const db = getDb();
   const [p, u, t, l, c, pay, d, s] = await Promise.all([
@@ -29,7 +29,7 @@ export async function buildBackup() {
       charges: c,
       payments: pay,
       documents: d,
-      settings: s.filter((x) => x.key !== "drive_root_folder_id"),
+      settings: s,
     },
   };
 }
@@ -58,25 +58,12 @@ export async function buildPaymentsCsv(): Promise<string> {
   return "﻿" + lines.join("\n");
 }
 
-export async function backupToDrive(): Promise<{ url: string | null }> {
+/** Guarda una copia completa en Vercel Blob (carpeta respaldos/) y conserva las últimas 60. */
+export async function saveBackup(): Promise<{ path: string }> {
   const today = todayISO();
-  const folder = await getFolderPath("Respaldos", today.slice(0, 4));
   const json = JSON.stringify(await buildBackup(), null, 1);
-  const file = await uploadFile({
-    name: `respaldo-${today}.json`,
-    mimeType: "application/json",
-    data: new TextEncoder().encode(json),
-    parentId: folder,
-  });
-  // Una vez al mes también deja la lista de pagos en formato hoja de cálculo.
-  if (today.endsWith("-01")) {
-    await uploadFile({
-      name: `pagos-${today}.csv`,
-      mimeType: "text/csv",
-      data: new TextEncoder().encode(await buildPaymentsCsv()),
-      parentId: folder,
-    });
-  }
-  await setSettings({ last_backup_at: new Date().toISOString(), last_backup_url: file.webViewLink ?? "" });
-  return { url: file.webViewLink ?? null };
+  const file = await saveFile(`respaldos/respaldo-${today}.json`, json, "application/json");
+  await setSettings({ last_backup_at: new Date().toISOString(), last_backup_path: file.pathname });
+  await pruneBackups(60).catch((e) => console.error("No se pudieron borrar respaldos viejos:", e));
+  return { path: file.pathname };
 }

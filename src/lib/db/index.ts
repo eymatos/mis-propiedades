@@ -27,7 +27,7 @@ export { schema };
 // migraciones a mano. Si en el futuro cambia el esquema, se sube SCHEMA_VERSION
 // y se agregan sentencias idempotentes (ADD COLUMN IF NOT EXISTS, etc.).
 
-const SCHEMA_VERSION = "1";
+const SCHEMA_VERSION = "2";
 
 const STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS properties (
@@ -36,7 +36,6 @@ const STATEMENTS = [
     type text NOT NULL DEFAULT 'edificio',
     address text,
     notes text,
-    drive_folder_id text,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE TABLE IF NOT EXISTS units (
@@ -55,7 +54,6 @@ const STATEMENTS = [
     phone text,
     email text,
     notes text,
-    drive_folder_id text,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE TABLE IF NOT EXISTS leases (
@@ -93,8 +91,6 @@ const STATEMENTS = [
     method text NOT NULL DEFAULT 'efectivo',
     reference text,
     receipt_number integer,
-    receipt_drive_id text,
-    receipt_url text,
     notes text,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
@@ -107,8 +103,7 @@ const STATEMENTS = [
     lease_id integer REFERENCES leases(id) ON DELETE CASCADE,
     name text NOT NULL,
     category text NOT NULL DEFAULT 'otro',
-    drive_file_id text NOT NULL,
-    web_view_link text,
+    storage_path text NOT NULL,
     mime_type text,
     size bigint,
     created_at timestamptz NOT NULL DEFAULT now()
@@ -117,14 +112,16 @@ const STATEMENTS = [
     key text PRIMARY KEY,
     value text NOT NULL
   )`,
-  `CREATE TABLE IF NOT EXISTS google_auth (
-    id integer PRIMARY KEY DEFAULT 1,
-    email text NOT NULL,
-    refresh_token text,
-    access_token text,
-    expires_at bigint,
-    updated_at timestamptz NOT NULL DEFAULT now()
-  )`,
+  // Versión 2: los archivos pasan de Google Drive a Vercel Blob.
+  `ALTER TABLE leases ADD COLUMN IF NOT EXISTS billing_from text`,
+  `ALTER TABLE documents ADD COLUMN IF NOT EXISTS storage_path text`,
+  `ALTER TABLE documents DROP COLUMN IF EXISTS drive_file_id`,
+  `ALTER TABLE documents DROP COLUMN IF EXISTS web_view_link`,
+  `ALTER TABLE properties DROP COLUMN IF EXISTS drive_folder_id`,
+  `ALTER TABLE tenants DROP COLUMN IF EXISTS drive_folder_id`,
+  `ALTER TABLE payments DROP COLUMN IF EXISTS receipt_drive_id`,
+  `ALTER TABLE payments DROP COLUMN IF EXISTS receipt_url`,
+  `DROP TABLE IF EXISTS google_auth`,
 ];
 
 let ready: Promise<void> | null = null;

@@ -6,7 +6,6 @@ import { loadCharges, type ChargeView } from "./billing";
 import { formatDateLong, formatDate } from "./dates";
 import { formatDOP, montoEnLetras, toNumber } from "./money";
 import { getSettings } from "./settings";
-import { getEntityFolder, getSubfolder, uploadFile } from "./google";
 
 // Las fuentes estándar de PDF solo aceptan Latin-1: quitamos lo demás.
 function clean(s: string | null | undefined): string {
@@ -112,24 +111,4 @@ export async function buildReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
   text(page, `Emitido el ${formatDateLong(payment.paidAt)}`, 36, 40, 8, regular, muted);
 
   return doc.save();
-}
-
-/** Genera el PDF del recibo y lo guarda en la carpeta del inquilino en Drive. */
-export async function archiveReceipt(paymentId: number): Promise<string | null> {
-  const data = await getReceiptData(paymentId);
-  if (!data) return null;
-  const pdf = await buildReceiptPdf(data);
-  const tenantFolder = await getEntityFolder("tenant", data.charge.tenant.id);
-  const folder = await getSubfolder(tenantFolder, "Recibos");
-  const file = await uploadFile({
-    name: `Recibo ${receiptNo(data.payment.receiptNumber)} - ${data.charge.label}.pdf`,
-    mimeType: "application/pdf",
-    data: pdf,
-    parentId: folder,
-  });
-  await getDb()
-    .update(payments)
-    .set({ receiptDriveId: file.id, receiptUrl: file.webViewLink ?? null })
-    .where(eq(payments.id, paymentId));
-  return file.webViewLink ?? null;
 }
